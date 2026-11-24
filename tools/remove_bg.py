@@ -50,9 +50,16 @@ def white_key(img: Image.Image, tol: int, feather: float) -> Image.Image:
     return out
 
 
+_SESSION = None
+
+
 def ai_remove(img: Image.Image) -> Image.Image:
-    from rembg import remove  # type: ignore
-    return remove(img)
+    """Tách nền bằng AI (rembg, mô hình isnet-general-use): xóa luôn bóng đổ dưới chân."""
+    global _SESSION
+    from rembg import new_session, remove  # type: ignore
+    if _SESSION is None:
+        _SESSION = new_session("isnet-general-use")
+    return remove(img.convert("RGB"), session=_SESSION)
 
 
 def main() -> int:
