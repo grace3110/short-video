@@ -107,7 +107,7 @@ def rain(canvas, t, density=1.0, alpha=120):
 NO_TEXT = "--keyframes" in sys.argv
 
 
-def text(canvas, s, y, size=64, fill=(255, 255, 255), stroke=(0, 0, 0), sw=7, appear=1.0, box=False):
+def text(canvas, s, y, size=64, fill=(255, 255, 255), stroke=(0, 0, 0), sw=7, appear=1.0, box=False, cx=None):
     if appear <= 0 or NO_TEXT:
         return
     font = ImageFont.truetype(FONT, size)
@@ -121,7 +121,8 @@ def text(canvas, s, y, size=64, fill=(255, 255, 255), stroke=(0, 0, 0), sw=7, ap
         d.rounded_rectangle(((W - bw) / 2, y - 25, (W + bw) / 2, y - 25 + bh), 36, fill=(255, 255, 255, 235),
                             outline=(30, 30, 30, 255), width=6)
     for i, l in enumerate(lines):
-        d.text(((W - widths[i]) / 2, y + i * lh), l, font=font, fill=fill, stroke_width=sw, stroke_fill=stroke)
+        x0 = (W - widths[i]) / 2 if cx is None else cx - widths[i] / 2
+        d.text((x0, y + i * lh), l, font=font, fill=fill, stroke_width=sw, stroke_fill=stroke)
     if appear < 1:  # bật lên
         s_ = ease_out_back(appear)
         bb = layer.getbbox()
@@ -218,11 +219,27 @@ def shot4(t):  # 6–9s BẤT NGỜ: Vịt ướt, xe chết máy
     paste(c, DUCK_WET, W / 2 + shake, 1820 + jolt * 0.4, angle=jolt * 0.15)
     water(c, 1640, t)
     rain(c, t + 2, density=1.0)
-    if kick < 0.25:  # khói "phụt" từ ống xả
-        layer = Image.new("RGBA", c.size, (0, 0, 0, 0))
-        r = 40 + kick * 300
-        ImageDraw.Draw(layer).ellipse((780 - r, 1500 - r, 780 + r, 1500 + r), fill=(90, 90, 90, int(160 * (1 - kick * 4))))
-        c.alpha_composite(layer.filter(ImageFilter.GaussianBlur(12)))
+    # khói "phụt" từ ống xả sau mỗi cú đạp: 3 cụm khói xám bốc lên, bay sang phải, tan dần
+    layer = Image.new("RGBA", c.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    age = kick / 2.2  # giây kể từ cú đạp gần nhất
+    for prev in (0, 1):  # cụm khói của cú đạp này và cú trước (còn đang tan)
+        a_ = age + prev / 2.2
+        if a_ > 0.9:
+            continue
+        for j in range(6):  # 6 cụm khói nhỏ, mỗi cụm xuất hiện trễ hơn một chút
+            aj = a_ - j * 0.04
+            if aj <= 0:
+                continue
+            r = 30 + aj * 150 + (j % 3) * 8
+            x = 790 + aj * 160 + [0, 30, -20, 45, 10, -35][j]
+            y = 1540 - aj * 330 - [0, 25, 40, 10, 55, 30][j]
+            al = int(230 * max(0, 1 - aj / 0.85))
+            d.ellipse((x - r, y - r, x + r, y + r), fill=(200, 200, 205, al))
+            d.ellipse((x - r * 0.55, y - r * 0.7, x + r * 0.35, y + r * 0.2), fill=(245, 245, 248, al))
+    c.alpha_composite(layer.filter(ImageFilter.GaussianBlur(14)))
+    if age < 0.3:
+        text(c, "PHỤT!", 1100, size=80, fill=(255, 255, 255), stroke=(50, 50, 50), sw=8, appear=age / 0.12, cx=860)
     speech(c, "VỊT BẢNH", "Ơ… ơ… nổ đi mà!", 0.3, t)
     return c
 
